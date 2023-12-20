@@ -1,0 +1,10 @@
+.idea
+__pycache__/
+.vscode/
+model*/
+prediction*/
+figs*/
+runs*/
+old_simulations/
+.DS_Store
+**/*experiment_log*.txt

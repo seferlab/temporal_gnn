@@ -1,0 +1,8 @@
+.idea
+data
+out
+venv
+__pycache__
+config.ini
+.DS_Store
+.ipynb_checkpoints

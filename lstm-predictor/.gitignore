@@ -1,0 +1,10 @@
+.idea
+__pycache__/
+.vscode/
+.DS_Store
+.spyproject/
+runs/
+figs/
+prediction/
+test_prediction/
+models/
