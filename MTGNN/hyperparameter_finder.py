@@ -10,7 +10,7 @@ from train_single_step import SingleStep
 def main(device, data_path, horizon):
     hpo_max_evals = 100
     hpo_space = {
-        'epoch': hp.choice('epoch', [100]),
+        'epoch': hp.choice('epoch', [30]),
         'num_of_weeks_in_window': hp.choice('num_of_weeks_in_window', [2, 3, 4, 5]),
         'lr': hp.loguniform('lr', np.log(1e-6), np.log(1e-3)),
         'weight_decay': hp.loguniform('weight_decay', np.log(1e-6), np.log(1e-4)),

@@ -57,8 +57,9 @@ class SingleStep:
         file_name = self.data_path.replace(".csv", "")
         if 'out/' in file_name:
             file_name = file_name.split('out/')[1]
-        model_calculation = 25 if self.week < 50 else (50 if 50 <= self.week < 75 else
-                                                       (75 if 75 <= self.week < 90 else 90))
+        model_calculation = 0 if self.week < 25 else (25 if 25 <= self.week < 50 else
+                                                      (50 if 50 <= self.week < 75 else
+                                                       (75 if 75 <= self.week < 90 else 90)))
         self.model_path = self.init_path(f'model/{self.seq_in_len}/{file_name}/weeks', str(model_calculation), '.pt')
         self.figs_path = self.create_path(
             f'figs/{Constants.PREDICTION_TIME}/{self.seq_in_len}/{file_name}/week_{self.week}')
@@ -145,9 +146,10 @@ class SingleStep:
             for epoch in tqdm(range(1, self.epochs + 1), desc='train_single_step.py > epoch'):
                 epoch_start_time = time.time()
                 train_loss = self.train()
-                val_loss, val_rae, val_corr, val_mape = evaluate(self.data, self.data.valid[0], self.data.valid[1],
-                                                                 self.model, self.evaluateL2, self.evaluateL1,
-                                                                 self.batch_size)
+                val_loss, val_rae, val_corr, val_mape, val_mae, val_rmse = evaluate(self.data, self.data.valid[0],
+                                                                                    self.data.valid[1], self.model,
+                                                                                    self.evaluateL2, self.evaluateL1,
+                                                                                    self.batch_size)
                 self.add_to_summary(epoch, train_loss, val_loss, val_rae, val_corr, val_mape)
                 print(
                     '| end of epoch {:3d} | time: {:5.2f}s | train_loss {:5.4f} | valid rse {:5.4f} | valid rae {:5.4f} | valid corr {:5.4f} | valid mape {:5.4f}'
@@ -167,13 +169,14 @@ class SingleStep:
                         print(f"Early stopping after {early_stop_patience} epochs without improvement.")
                         break
                 if epoch % 5 == 0:
-                    test_loss, test_rae, test_corr, test_mape = evaluate(self.data, self.data.test[0],
-                                                                         self.data.test[1], self.model, self.evaluateL2,
-                                                                         self.evaluateL1, self.batch_size)
+                    test_loss, test_rae, test_corr, test_mape, test_mae, test_rmse = evaluate(
+                        self.data, self.data.test[0], self.data.test[1], self.model, self.evaluateL2, self.evaluateL1,
+                        self.batch_size)
                     self.add_test_metrics_to_summary(epoch, test_loss, test_rae, test_corr, test_mape)
-                    print("test rse {:5.4f} | test rae {:5.4f} | test corr {:5.4f} | test mape {:5.4f}".format(
-                        test_loss, test_rae, test_corr, test_mape),
-                          flush=True)
+                    print(
+                        "test rse {:5.4f} | test rae {:5.4f} | test corr {:5.4f} | test mape {:5.4f} | test mae {:5.4f} | test rmse {:5.4f}"
+                        .format(test_loss, test_rae, test_corr, test_mape, test_mae, test_rmse),
+                        flush=True)
 
         except KeyboardInterrupt:
             print('-' * 89)
@@ -243,11 +246,12 @@ class SingleStep:
     def evaluate_the_best_model(self):
         model = self.load_model()
 
-        vtest_acc, vtest_rae, vtest_corr, vtest_mape = evaluate(self.data, self.data.valid[0], self.data.valid[1],
-                                                                model, self.evaluateL2, self.evaluateL1,
-                                                                self.batch_size)
-        test_acc, test_rae, test_corr, test_mape = evaluate(self.data, self.data.test[0], self.data.test[1], model,
-                                                            self.evaluateL2, self.evaluateL1, self.batch_size)
+        vtest_acc, vtest_rae, vtest_corr, vtest_mape, vtest_mae, vtest_rmse = evaluate(
+            self.data, self.data.valid[0], self.data.valid[1], model, self.evaluateL2, self.evaluateL1, self.batch_size)
+        test_acc, test_rae, test_corr, test_mape, test_mae, test_rmse = evaluate(self.data, self.data.test[0],
+                                                                                 self.data.test[1], model,
+                                                                                 self.evaluateL2, self.evaluateL1,
+                                                                                 self.batch_size)
         print("final test rse {:5.4f} | test rae {:5.4f} | test corr {:5.4f} | test mape {:5.4f}".format(
             test_acc, test_rae, test_corr, test_mape))
         return vtest_acc, vtest_rae, vtest_corr, vtest_mape, test_acc, test_rae, test_corr, test_mape
@@ -326,20 +330,24 @@ def evaluate(data, X, Y, model, evaluateL2, evaluateL1, batch_size):
         total_mape += torch.abs(((output * scale) - (Y * scale)) / (Y * scale)).sum().item()
         n_samples += (output.size(0) * data.num_cols)
 
-    rse = math.sqrt(total_loss / n_samples) / data.rse
-    rae = (total_loss_l1 / n_samples) / data.rae
+    mse = total_loss / n_samples
+    rmse = math.sqrt(mse)
+    mae = total_loss_l1 / n_samples
     mape = total_mape / n_samples
+
+    rse = rmse / data.rse
+    rae = mae / data.rae
 
     predict = predict.data.cpu().numpy()
     Ytest = test.data.cpu().numpy()
-    sigma_p = (predict).std(axis=0)
-    sigma_g = (Ytest).std(axis=0)
+    sigma_p = predict.std(axis=0)
+    sigma_g = Ytest.std(axis=0)
     mean_p = predict.mean(axis=0)
     mean_g = Ytest.mean(axis=0)
     index = (sigma_g != 0)
     correlation = ((predict - mean_p) * (Ytest - mean_g)).mean(axis=0) / (sigma_p * sigma_g)
     correlation = (correlation[index]).mean()
-    return rse, rae, correlation, mape
+    return rse, rae, correlation, mape, mae, rmse
 
 
 def print_results(runs, acc, corr, mape, rae, vacc, vcorr, vmape, vrae):

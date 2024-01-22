@@ -10,16 +10,16 @@ class Config:
     conv_channels = 4
     epoch = 2000
     layers = 3
-    lr = 0.00014215115225721316
-    num_of_weeks_in_window = 2
-    weight_decay = 3.485648994073535e-05
+    lr = 6.370722737649946e-05
+    num_of_weeks_in_window = 3
+    weight_decay = 2.029637392692641e-05
 
 
 def main(device, data_path, horizon, num_weeks):
     num_assets = len(pd.read_csv(data_path).columns) - 2
-    end_indexes = [50, 75, 90, num_weeks]
+    end_indexes = [25, 50, 75, 90, num_weeks]
     i = 0
-    for week in tqdm([25, 50, 75, 90], desc='train_and_predict_weeks_fast.py > week'):
+    for week in tqdm([0, 25, 50, 75, 90], desc='train_and_predict_weeks_fast.py > week'):
         print(f"Training week: {week}")
         get_trainer(data_path, horizon, num_assets, week, num_weeks, device).run_train_only()
         for predicting_week in range(week, end_indexes[i]):
