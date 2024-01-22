@@ -17,8 +17,10 @@ pd.set_option('display.width', 1000)
 def main(dataset):
     if dataset == 'fx':
         paths = config.FXPaths
+        risk_free_rate_13_week = 3.31694291  # average Treasury Bill rate during simulation period from 10/2021-10/2023
     elif dataset == 'crypto':
         paths = config.CryptoPaths
+        risk_free_rate_13_week = 0.625856574  # average Treasury Bill rate during simulation period from 10/2020-10/2022
     else:
         sys.exit("Error: Unknown dataset. Please use 'crypto' or 'fx' as the dataset argument.")
 
@@ -54,7 +56,9 @@ def main(dataset):
 
     Reporter.plot_portfolio_values_of_random_all_and_deep_learning_models(portfolio_values_df)
     Reporter.print_resulting_portfolio_values_for_each_model(portfolio_values_df)
-    Reporter.print_portfolio_metrics(portfolio_values_df, bull_bear_split_needed=dataset == 'crypto')
+    Reporter.print_portfolio_metrics(portfolio_values_df,
+                                     risk_free_rate_13_week,
+                                     bull_bear_split_needed=dataset == 'crypto')
     Reporter.print_portfolio_asset_selection_accuracies(best_model_results + [random_results])
 
     returns_df = ReportTransformer.get_returns(portfolio_values_df, normalize=True, append_ones=False)

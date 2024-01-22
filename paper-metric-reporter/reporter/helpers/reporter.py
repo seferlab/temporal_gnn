@@ -82,7 +82,7 @@ class Reporter:
         results = []
 
         for comp in itertools.combinations(values_df.columns, 2):
-            t_stat, p_val = stats.ttest_ind(values_df[comp[0]], values_df[comp[1]])
+            t_stat, p_val = stats.ttest_rel(values_df[comp[0]], values_df[comp[1]])
             result = p_val < 0.05
             results.append({
                 'Comparison': f'{comp[0]} vs {comp[1]}',
@@ -125,7 +125,7 @@ class Reporter:
         plt.show()
 
     @classmethod
-    def print_portfolio_metrics(cls, portfolio_values_df, bull_bear_split_needed):
+    def print_portfolio_metrics(cls, portfolio_values_df, risk_free_rate_13_week, bull_bear_split_needed):
 
         def get_portfolio_metrics(df):
             model_name = df.columns[0]
@@ -133,8 +133,11 @@ class Reporter:
             returns = (df / df.shift(1)) - 1
             weights = np.asarray([1 / df.shape[1]] * df.shape[1])
             expected_return = np.sum(weights * returns.mean()) * 52
-            volatility = np.sqrt(np.dot(weights.T, np.dot(returns.cov() * 52, weights)))
-            information_ratio = expected_return / volatility
+            volatility = np.sqrt(np.dot(weights.T, np.dot(returns.cov(), weights))) * np.sqrt(52)
+
+            quarterly_rate = risk_free_rate_13_week / 4
+            weekly_rate = (1 + quarterly_rate)**(1 / 13) - 1
+            sharpe_ratio = (expected_return - weekly_rate) / volatility
 
             roll_max = df[model_name].cummax()
             daily_drawdown = df[model_name] / roll_max - 1.0
@@ -144,13 +147,13 @@ class Reporter:
                 "Model": model_name,
                 "Expected Return": expected_return,
                 "Volatility": volatility,
-                "Information Ratio": information_ratio,
+                "Sharpe Ratio": sharpe_ratio,
                 "Maximum Drawdown": max_drawdown
             }
 
-        portfolio_columns = ['Model', 'Expected Return', 'Volatility', 'Information Ratio', 'Maximum Drawdown']
+        portfolio_columns = ['Model', 'Expected Return', 'Volatility', 'Sharpe Ratio', 'Maximum Drawdown']
 
-        if not bull_bear_split_needed:
+        if bull_bear_split_needed:
             all_bull_metrics = []
             all_bear_metrics = []
             for model in portfolio_values_df.columns:
