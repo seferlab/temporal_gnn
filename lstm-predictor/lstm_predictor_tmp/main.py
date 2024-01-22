@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import torch
 from hyperopt import fmin, hp, space_eval, tpe
-from matplotlib import pyplot as plt
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 from torch.utils.tensorboard import SummaryWriter
@@ -59,15 +58,6 @@ class Config:
     total_weeks = 104
 
 
-# Config.num_weeks_to_train = 1
-# Config.total_weeks = 1
-# Config.num_epochs_to_run = 500
-# Config.hpo_max_evals = 20
-# Config.prices_path = 'lstm_predictor/tests/resources/daily_5_2189_marked.csv'
-# Config.predictions_base_path = 'test_prediction'
-# Config.log_active = True
-
-
 def log(week, message, log_anyway=False):
     if log_anyway or Config.log_active:
         print(f'Week: {week} | {message}')
@@ -78,7 +68,7 @@ def to_torch(np_array):
 
 
 # noinspection DuplicatedCode
-def read_log_returns(data_path, week, num_weeks, training_ratio, fill_zero_for_the_first_horizon_samples=False):
+def read_return_ratios(data_path, week, num_weeks, training_ratio, fill_zero_for_the_first_horizon_samples=False):
     """
     :return: Log returns, the last line is the last split point in the data when week == num_weeks.
              If week == num_weeks -1, the last line is the second last split point in the data, and so on.
@@ -103,16 +93,8 @@ def read_log_returns(data_path, week, num_weeks, training_ratio, fill_zero_for_t
 
         truncate_index -= 1
 
-    log_returns = _convert_to_simple_returns(raw_data.loc[:truncate_index].drop(['split_point'], axis=1),
-                                             fill_zero_for_the_first_horizon_samples).to_numpy()
-    # scaler = StandardScaler()
-
-    # Prevent look-ahead bias by fitting the scaler only on the training data
-    # num_training_samples = int(log_returns.shape[0] * training_ratio)
-    # scaler.fit(log_returns[:num_training_samples])
-
-    return log_returns
-    # return scaler.transform(log_returns)
+    return _convert_to_simple_returns(raw_data.loc[:truncate_index].drop(['split_point'], axis=1),
+                                      fill_zero_for_the_first_horizon_samples).to_numpy()
 
 
 # noinspection DuplicatedCode
@@ -218,17 +200,19 @@ class Runner:
         log(self._week, f'Best: {best}, with hparams: {best_hparams}')
         return best_hparams
 
-    def predict_with_best_hparams(self, hparams):
-        log(self._week, f"Predicting with hyperparams: {hparams}")
+    def predict_with_best_hparams(self, hparams, train_new_model):
+        log(self._week,
+            f"Training {'on' if train_new_model else 'off'}. Predicting with hyperparams: {hparams}",
+            log_anyway=True)
 
         hparams_str = self._create_hparams_str(hparams)
-        model_path = f'models/experiment_{Constants.PREDICTION_TIME}_week{self._week}/{hparams_str}/model.pt'
+        model_path = f'models/experiment_{Constants.PREDICTION_TIME}/{hparams_str}/model.pt'
         os.makedirs(os.path.dirname(model_path), exist_ok=True)
 
         normalized_training_ratio = Config.training_ratio / (Config.training_ratio + Config.validation_ratio) - .01
         normalized_validation_ratio = Config.validation_ratio / (Config.training_ratio + Config.validation_ratio) - .01
 
-        data_np = read_log_returns(Config.prices_path, self._week, Config.total_weeks, normalized_training_ratio)
+        data_np = read_return_ratios(Config.prices_path, self._week, Config.total_weeks, normalized_training_ratio)
         num_assets = data_np.shape[1]
 
         dl = WindowedSplitDataLoader(data_np, hparams['seq_len'], Config.horizon, normalized_training_ratio,
@@ -254,34 +238,38 @@ class Runner:
         progress_bar = tqdm(
             range(Config.num_epochs_to_run),
             desc=f'Losses (MSE) | Train: {training_loss:.3f}, Val: {val_loss:.3f}, Best-Val: {best_val_loss:.3f}')
-        for epoch in progress_bar:
-            model.train()
-            for i, data in enumerate(training_loader):
-                inputs, targets = data
-                optimizer.zero_grad()
-                outputs = model(inputs)
-                loss = criterion(outputs, targets)
-                loss.backward()
-                optimizer.step()
-                training_loss = loss.item()
 
-            model.eval()
-            with torch.no_grad():
-                validation_outputs = model(to_torch(dl.validation['X']))
-                val_loss = criterion(validation_outputs, to_torch(dl.validation['y'])).item()
-                progress_bar.set_description(
-                    f'Losses (MSE) | Train: {training_loss:.3f}, Val: {val_loss:.3f}, Best-Val: {best_val_loss:.3f}')
-                if val_loss < best_val_loss:
-                    best_val_loss = val_loss
-                    early_stop_counter = 0
-                    torch.save(model.state_dict(), model_path)
-                else:
-                    early_stop_counter += 1
-                    if early_stop_counter >= patience:
-                        log(
-                            self._week,
-                            f'Validation loss has not improved for {patience} epochs. Early stopping at epoch: {epoch}')
-                        break
+        if train_new_model:
+            for epoch in progress_bar:
+                model.train()
+                for i, data in enumerate(training_loader):
+                    inputs, targets = data
+                    optimizer.zero_grad()
+                    outputs = model(inputs)
+                    loss = criterion(outputs, targets)
+                    loss.backward()
+                    optimizer.step()
+                    training_loss = loss.item()
+
+                model.eval()
+                with torch.no_grad():
+                    validation_outputs = model(to_torch(dl.validation['X']))
+                    val_loss = criterion(validation_outputs, to_torch(dl.validation['y'])).item()
+                    progress_bar.set_description(
+                        f'Losses (MSE) | Train: {training_loss:.3f}, Val: {val_loss:.3f}, Best-Val: {best_val_loss:.3f}'
+                    )
+                    if val_loss < best_val_loss:
+                        best_val_loss = val_loss
+                        early_stop_counter = 0
+                        torch.save(model.state_dict(), model_path)
+                    else:
+                        early_stop_counter += 1
+                        if early_stop_counter >= patience:
+                            log(
+                                self._week,
+                                f'Validation loss has not improved for {patience} epochs. Early stopping at epoch: {epoch}'
+                            )
+                            break
 
         model.load_state_dict(torch.load(model_path))
         model.eval()
@@ -289,30 +277,6 @@ class Runner:
             training_outputs = model(to_torch(dl.training['X']))
             validation_outputs = model(to_torch(dl.validation['X']))
             last_day_outputs = model(to_torch(dl.last_day))
-
-            # Training Log
-            for i in range(num_assets):
-                predictions_of_asset = training_outputs.cpu().numpy()[:, i]
-                df = pd.DataFrame()
-                df['Prediction'] = predictions_of_asset
-                df['Actual'] = dl.training['y'][:, i]
-                df.plot()
-                plt.savefig(
-                    f'figs/experiment_{Constants.PREDICTION_TIME}_week{self._week}/{hparams_str}/prediction_training_asset_{i}.png'
-                )
-                plt.close()
-
-            # Validation Log
-            for i in range(num_assets):
-                predictions_of_asset = validation_outputs.cpu().numpy()[:, i]
-                df = pd.DataFrame()
-                df['Prediction'] = predictions_of_asset
-                df['Actual'] = dl.validation['y'][:, i]
-                df.plot()
-                plt.savefig(
-                    f'figs/experiment_{Constants.PREDICTION_TIME}_week{self._week}/{hparams_str}/prediction_validation_asset_{i}.png'
-                )
-                plt.close()
 
             training_mape = torch.mean(torch.abs((training_targets - training_outputs) / (training_targets + 1e-6)))
             validation_mape = torch.mean(
@@ -339,7 +303,7 @@ class Runner:
         self.create_figs_directory(hparams_str)
         writer = self._create_summary_writer(hparams_str)
 
-        data_np = read_log_returns(Config.prices_path, self._week, Config.total_weeks, Config.training_ratio)
+        data_np = read_return_ratios(Config.prices_path, self._week, Config.total_weeks, Config.training_ratio)
         num_assets = data_np.shape[1]
         dl = WindowedSplitDataLoader(data_np, hparams['seq_len'], Config.horizon, Config.training_ratio,
                                      Config.validation_ratio)
@@ -404,66 +368,34 @@ class Runner:
             validation_outputs = model(to_torch(dl.validation['X']))
             test_outputs = model(to_torch(dl.test['X']))
 
-            # Training Log
-            # for i in range(num_assets):
-            #     predictions_of_asset = training_outputs.cpu().numpy()[:, i]
-            #     df = pd.DataFrame()
-            #     df['Prediction'] = predictions_of_asset
-            #     df['Actual'] = dl.training['y'][:, i]
-            #     df.plot()
-            #     plt.savefig(
-            #         f'figs/experiment_{Constants.PREDICTION_TIME}_week{self._week}/{hparams_str}/training_asset_{i}.png')
-            #     plt.close()
-
-            # Validation Log
-            # for i in range(num_assets):
-            #     predictions_of_asset = validation_outputs.cpu().numpy()[:, i]
-            #     df = pd.DataFrame()
-            #     df['Prediction'] = predictions_of_asset
-            #     df['Actual'] = dl.validation['y'][:, i]
-            #     df.plot()
-            #     plt.savefig(
-            #         f'figs/experiment_{Constants.PREDICTION_TIME}_week{self._week}/{hparams_str}/validation_asset_{i}.png')
-            #     plt.close()
-
-            # Test Log
-            # for i in range(num_assets):
-            #     predictions_of_asset = test_outputs.cpu().numpy()[:, i]
-            #     df = pd.DataFrame()
-            #     df['Prediction'] = predictions_of_asset
-            #     df['Actual'] = dl.test['y'][:, i]
-            #     df.plot()
-            #     plt.savefig(
-            #         f'figs/experiment_{Constants.PREDICTION_TIME}_week{self._week}/{hparams_str}/test_asset_{i}.png')
-            #     plt.close()
-
-            training_loss = criterion(training_outputs, training_targets).item()
             val_loss = criterion(validation_outputs, to_torch(dl.validation['y'])).item()
-            test_loss = criterion(test_outputs, to_torch(dl.test['y'])).item()
 
+            # MAPE
             training_mape = torch.mean(torch.abs((training_targets - training_outputs) / (training_targets + 1e-6)))
             validation_mape = torch.mean(
                 torch.abs((validation_targets - validation_outputs) / (validation_targets + 1e-6)))
             test_mape = torch.mean(torch.abs((test_targets - test_outputs) / (test_targets + 1e-6)))
 
-            log(self._week,
-                f'Training / Validation / Test MAPEs: {training_mape:.3f} / {validation_mape:.3f} / {test_mape:.3f}',
-                log_anyway=True)
-            progress_bar.set_description(
-                progress_bar.desc +
-                f', Train MAPE: {training_mape:.3f}, Val MAPE: {validation_mape:.3f}, Test MAPE: {test_mape:.3f}')
-            progress_bar.display()
+            # MAE
+            training_mae = torch.mean(torch.abs(training_targets - training_outputs))
+            validation_mae = torch.mean(torch.abs(validation_targets - validation_outputs))
+            test_mae = torch.mean(torch.abs(test_targets - test_outputs))
 
-            writer.add_hparams(
-                hparams, {
-                    'training_loss': training_loss,
-                    'validation_loss': val_loss,
-                    'test_loss': test_loss,
-                    'training_mape': training_mape,
-                    'validation_mape': validation_mape,
-                    'test_mape': test_mape
-                })
+            # RMSE
+            training_rmse = self.rmse(training_outputs, training_targets)
+            validation_rmse = self.rmse(validation_outputs, validation_targets)
+            test_rmse = self.rmse(test_outputs, test_targets)
+
+            # Logging
+            log(self._week, f'Training MAPE/MAE/RMSE: {training_mape:.3f}/{training_mae:.3f}/{training_rmse:.3f} - '
+                f'Validation MAPE/MAE/RMSE: {validation_mape:.3f}/{validation_mae:.3f}/{validation_rmse:.3f} - '
+                f'Test MAPE/MAE/RMSE: {test_mape:.3f}/{test_mae:.3f}/{test_rmse:.3f}',
+                log_anyway=True)
             return val_loss
+
+    @staticmethod
+    def rmse(predictions, targets):
+        return torch.sqrt(torch.mean((predictions - targets)**2))
 
     def create_figs_directory(self, hparams_str):
         os.makedirs(f"figs/experiment_{Constants.PREDICTION_TIME}_week{self._week}/{hparams_str}")
@@ -488,11 +420,15 @@ def main_quick():
         os.system('rm -rf runs')
     if os.path.exists('models'):
         os.system('rm -rf models')
+    runner = Runner(week=0)
+    best_hparams = runner.get_best_hparams()
+    print(f'Best hyperparameters of week {0}: {best_hparams}')
     for week in tqdm(range(Config.num_weeks_to_train)):
         runner = Runner(week=week)
-        best_hparams = runner.get_best_hparams()
-        print(f'Best hyperparameters of week {week}: {best_hparams}')
-        last_day_outputs = runner.predict_with_best_hparams(best_hparams)
+        if week % 5 == 0:
+            last_day_outputs = runner.predict_with_best_hparams(best_hparams, True)
+        else:
+            last_day_outputs = runner.predict_with_best_hparams(best_hparams, False)
         runner.save_predictions(last_day_outputs)
 
 

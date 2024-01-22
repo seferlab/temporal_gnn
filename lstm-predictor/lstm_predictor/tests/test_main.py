@@ -3,7 +3,7 @@ from unittest import TestCase
 import numpy as np
 import pandas as pd
 
-from lstm_predictor_tmp.main import Config, read_log_returns, WindowedSplitDataLoader
+from lstm_predictor_tmp.main import Config, read_return_ratios, WindowedSplitDataLoader
 
 
 class Test(TestCase):
@@ -11,7 +11,7 @@ class Test(TestCase):
     def test_read_log_returns(self):
         path = 'resources/daily_1_200_marked.csv'
         raw_data = pd.read_csv(path)[['BTC-USD']].to_numpy()
-        log_returns = read_log_returns(path, 0, 1, True)
+        log_returns = read_return_ratios(path, 0, 1, True)
         for i in range(179, -1, -1):
             self.assertEqual(log_returns[i + Config.horizon], np.log(raw_data[i + Config.horizon] / raw_data[i]))
         for i in range(Config.horizon):
@@ -20,7 +20,7 @@ class Test(TestCase):
     def test_read_log_returns_without_prepending_zeros(self):
         path = 'resources/daily_1_200_marked.csv'
         raw_data = pd.read_csv(path)[['BTC-USD']].to_numpy()
-        log_returns = read_log_returns(path, 0, 1)
+        log_returns = read_return_ratios(path, 0, 1)
         for i in range(172, -1, -1):
             self.assertEqual(log_returns[i + Config.horizon],
                              np.log(raw_data[i + 2 * Config.horizon] / raw_data[i + Config.horizon]))
