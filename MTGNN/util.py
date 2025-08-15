@@ -11,17 +11,19 @@ from torch.autograd import Variable
 
 class DataLoaderS(object):
     # train and valid is the ratio of training set and validation set. test = 1 - train - valid
-    def __init__(self,
-                 file_name,
-                 week,
-                 num_weeks,
-                 train_ratio,
-                 valid_ratio,
-                 device,
-                 horizon,
-                 window,
-                 normalize=2,
-                 run_for_prediction=False):
+    def __init__(
+        self,
+        file_name,
+        week,
+        num_weeks,
+        train_ratio,
+        valid_ratio,
+        device,
+        horizon,
+        window,
+        normalize=2,
+        run_for_prediction=False,
+    ):
         self.window = window
         self.horizon = horizon
         print(f"Loading data from: {file_name}")
@@ -33,7 +35,10 @@ class DataLoaderS(object):
         self.num_rows, self.num_cols = self.dat.shape
         self.scale = np.ones(self.num_cols)
         self._normalized(normalize, int(train_ratio * self.num_rows))
-        self._split(int(train_ratio * self.num_rows), int((train_ratio + valid_ratio) * self.num_rows))
+        self._split(
+            int(train_ratio * self.num_rows),
+            int((train_ratio + valid_ratio) * self.num_rows),
+        )
         if run_for_prediction:
             self.all = self._batchify(range(self.window + self.horizon - 1, self.num_rows))
 
@@ -56,7 +61,7 @@ class DataLoaderS(object):
         stopping_point = -1
         truncation_mark = num_weeks - week
 
-        for point in reversed(raw_data['split_point']):
+        for point in reversed(raw_data["split_point"]):
             if stopping_point == truncation_mark:
                 break
 
@@ -65,17 +70,19 @@ class DataLoaderS(object):
 
             truncate_index -= 1
 
-        return self._convert_to_simple_returns(raw_data.loc[:truncate_index].drop(
-            ['split_point'], axis=1), fill_zero_for_the_first_horizon_samples).drop(columns=['Date']).to_numpy()
+        return (self._convert_to_simple_returns(
+            raw_data.loc[:truncate_index].drop(["split_point"], axis=1),
+            fill_zero_for_the_first_horizon_samples,
+        ).drop(columns=["Date"]).to_numpy())
 
     @staticmethod
     def _convert_to_simple_returns(df, fill_zero_for_the_first_horizon_samples):
-        np_form = df.drop(['Date'], axis=1).to_numpy()
+        np_form = df.drop(["Date"], axis=1).to_numpy()
         simple_returns = np_form[7:] / np_form[:-7]
         if fill_zero_for_the_first_horizon_samples:
-            simple_returns = np.vstack([np.full((7, np_form.shape[1]), .01), simple_returns])
+            simple_returns = np.vstack([np.full((7, np_form.shape[1]), 0.01), simple_returns])
         returns_df = pd.DataFrame(simple_returns, columns=df.columns[1:])
-        returns_df['Date'] = df['Date']
+        returns_df["Date"] = df["Date"]
         return returns_df
 
     def _normalized(self, normalize, train_end_index):
@@ -184,7 +191,7 @@ class DataLoaderM(object):
         return _wrapper()
 
 
-class StandardScaler():
+class StandardScaler:
     """
     Standard the input
     """
@@ -205,9 +212,9 @@ def sym_adj(adj):
     adj = sp.coo_matrix(adj)
     rowsum = np.array(adj.sum(1))
     d_inv_sqrt = np.power(rowsum, -0.5).flatten()
-    d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
+    d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.0
     d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
-    return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).astype(np.float32).todense()
+    return (adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).astype(np.float32).todense())
 
 
 def asym_adj(adj):
@@ -215,7 +222,7 @@ def asym_adj(adj):
     adj = sp.coo_matrix(adj)
     rowsum = np.array(adj.sum(1)).flatten()
     d_inv = np.power(rowsum, -1).flatten()
-    d_inv[np.isinf(d_inv)] = 0.
+    d_inv[np.isinf(d_inv)] = 0.0
     d_mat = sp.diags(d_inv)
     return d_mat.dot(adj).astype(np.float32).todense()
 
@@ -230,9 +237,9 @@ def calculate_normalized_laplacian(adj):
     adj = sp.coo_matrix(adj)
     d = np.array(adj.sum(1))
     d_inv_sqrt = np.power(d, -0.5).flatten()
-    d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
+    d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.0
     d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
-    normalized_laplacian = sp.eye(adj.shape[0]) - adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
+    normalized_laplacian = (sp.eye(adj.shape[0]) - adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo())
     return normalized_laplacian
 
 
@@ -241,24 +248,24 @@ def calculate_scaled_laplacian(adj_mx, lambda_max=2, undirected=True):
         adj_mx = np.maximum.reduce([adj_mx, adj_mx.T])
     L = calculate_normalized_laplacian(adj_mx)
     if lambda_max is None:
-        lambda_max, _ = linalg.eigsh(L, 1, which='LM')
+        lambda_max, _ = linalg.eigsh(L, 1, which="LM")
         lambda_max = lambda_max[0]
     L = sp.csr_matrix(L)
     M, _ = L.shape
-    I = sp.identity(M, format='csr', dtype=L.dtype)
+    I = sp.identity(M, format="csr", dtype=L.dtype)
     L = (2 / lambda_max * L) - I
     return L.astype(np.float32).todense()
 
 
 def load_pickle(pickle_file):
     try:
-        with open(pickle_file, 'rb') as f:
+        with open(pickle_file, "rb") as f:
             pickle_data = pickle.load(f)
     except UnicodeDecodeError as e:
-        with open(pickle_file, 'rb') as f:
-            pickle_data = pickle.load(f, encoding='latin1')
+        with open(pickle_file, "rb") as f:
+            pickle_data = pickle.load(f, encoding="latin1")
     except Exception as e:
-        print('Unable to load data ', pickle_file, ':', e)
+        print("Unable to load data ", pickle_file, ":", e)
         raise
     return pickle_data
 
@@ -270,19 +277,19 @@ def load_adj(pkl_filename):
 
 def load_dataset(dataset_dir, batch_size, valid_batch_size=None, test_batch_size=None):
     data = {}
-    for category in ['train', 'val', 'test']:
-        cat_data = np.load(os.path.join(dataset_dir, category + '.npz'))
-        data['x_' + category] = cat_data['x']
-        data['y_' + category] = cat_data['y']
-    scaler = StandardScaler(mean=data['x_train'][..., 0].mean(), std=data['x_train'][..., 0].std())
+    for category in ["train", "val", "test"]:
+        cat_data = np.load(os.path.join(dataset_dir, category + ".npz"))
+        data["x_" + category] = cat_data["x"]
+        data["y_" + category] = cat_data["y"]
+    scaler = StandardScaler(mean=data["x_train"][..., 0].mean(), std=data["x_train"][..., 0].std())
     # Data format
-    for category in ['train', 'val', 'test']:
-        data['x_' + category][..., 0] = scaler.transform(data['x_' + category][..., 0])
+    for category in ["train", "val", "test"]:
+        data["x_" + category][..., 0] = scaler.transform(data["x_" + category][..., 0])
 
-    data['train_loader'] = DataLoaderM(data['x_train'], data['y_train'], batch_size)
-    data['val_loader'] = DataLoaderM(data['x_val'], data['y_val'], valid_batch_size)
-    data['test_loader'] = DataLoaderM(data['x_test'], data['y_test'], test_batch_size)
-    data['scaler'] = scaler
+    data["train_loader"] = DataLoaderM(data["x_train"], data["y_train"], batch_size)
+    data["val_loader"] = DataLoaderM(data["x_val"], data["y_val"], valid_batch_size)
+    data["test_loader"] = DataLoaderM(data["x_test"], data["y_test"], test_batch_size)
+    data["scaler"] = scaler
     return data
 
 
@@ -290,7 +297,7 @@ def masked_mse(preds, labels, null_val=np.nan):
     if np.isnan(null_val):
         mask = ~torch.isnan(labels)
     else:
-        mask = (labels != null_val)
+        mask = labels != null_val
     mask = mask.float()
     mask /= torch.mean((mask))
     mask = torch.where(torch.isnan(mask), torch.zeros_like(mask), mask)
@@ -308,7 +315,7 @@ def masked_mae(preds, labels, null_val=np.nan):
     if np.isnan(null_val):
         mask = ~torch.isnan(labels)
     else:
-        mask = (labels != null_val)
+        mask = labels != null_val
     mask = mask.float()
     mask /= torch.mean((mask))
     mask = torch.where(torch.isnan(mask), torch.zeros_like(mask), mask)
@@ -322,7 +329,7 @@ def masked_mape(preds, labels, null_val=np.nan):
     if np.isnan(null_val):
         mask = ~torch.isnan(labels)
     else:
-        mask = (labels != null_val)
+        mask = labels != null_val
     mask = mask.float()
     mask /= torch.mean((mask))
     mask = torch.where(torch.isnan(mask), torch.zeros_like(mask), mask)
@@ -355,9 +362,9 @@ def load_node_feature(path):
 
 
 def normal_std(x):
-    return x.std() * np.sqrt((len(x) - 1.) / (len(x)))
+    return x.std() * np.sqrt((len(x) - 1.0) / (len(x)))
 
 
 # noinspection PyPep8Naming
 def format_time_as_YYYYMMddHHmm(time):
-    return time.isoformat(sep='/', timespec='minutes').replace('-', '').replace(':', '').replace('/', '')
+    return (time.isoformat(sep="/", timespec="minutes").replace("-", "").replace(":", "").replace("/", ""))

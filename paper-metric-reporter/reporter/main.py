@@ -9,16 +9,16 @@ from models import *
 
 random.seed(0)
 
-pd.set_option('display.max_columns', None)
-pd.set_option('display.max_rows', None)
-pd.set_option('display.width', 1000)
+pd.set_option("display.max_columns", None)
+pd.set_option("display.max_rows", None)
+pd.set_option("display.width", 1000)
 
 
 def main(dataset):
-    if dataset == 'fx':
+    if dataset == "fx":
         paths = config.FXPaths
         risk_free_rate_13_week = 3.31694291  # average Treasury Bill rate during simulation period from 10/2021-10/2023
-    elif dataset == 'crypto':
+    elif dataset == "crypto":
         paths = config.CryptoPaths
         risk_free_rate_13_week = 0.625856574  # average Treasury Bill rate during simulation period from 10/2020-10/2022
     else:
@@ -27,8 +27,10 @@ def main(dataset):
     actual_prices = Reader.get_actual_prices(paths.actual.path, config.num_weeks)
     num_assets = actual_prices.data.shape[1]
     predicted_returns = [
-        Data(Reader.get_predicted_returns(path.path, config.num_weeks, num_assets, path.data_type), path.label)
-        for path in paths.raw_prediction_paths
+        Data(
+            Reader.get_predicted_returns(path.path, config.num_weeks, num_assets, path.data_type),
+            path.label,
+        ) for path in paths.raw_prediction_paths
     ]
     predicted_prices = ReportTransformer.get_predicted_prices(actual_prices, predicted_returns)
 
@@ -56,14 +58,16 @@ def main(dataset):
 
     Reporter.plot_portfolio_values_of_random_all_and_deep_learning_models(portfolio_values_df)
     Reporter.print_resulting_portfolio_values_for_each_model(portfolio_values_df)
-    Reporter.print_portfolio_metrics(portfolio_values_df,
-                                     risk_free_rate_13_week,
-                                     bull_bear_split_needed=dataset == 'crypto')
+    Reporter.print_portfolio_metrics(
+        portfolio_values_df,
+        risk_free_rate_13_week,
+        bull_bear_split_needed=dataset == "crypto",
+    )
     Reporter.print_portfolio_asset_selection_accuracies(best_model_results + [random_results])
 
     returns_df = ReportTransformer.get_returns(portfolio_values_df, normalize=True, append_ones=False)
-    Reporter.print_statistical_significance_metrics(portfolio_values_df, 'capital')
-    Reporter.print_statistical_significance_metrics(returns_df, 'return')
+    Reporter.print_statistical_significance_metrics(portfolio_values_df, "capital")
+    Reporter.print_statistical_significance_metrics(returns_df, "return")
     Reporter.plot_returns(returns_df)
     Reporter.plot_correlation_matrix_of_returns(returns_df)
     Reporter.plot_pairwise_returns(returns_df)
@@ -77,5 +81,5 @@ def main(dataset):
     Reporter.plot_predicted_and_actual_portfolio_values(best_model_results)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main(sys.argv[1])

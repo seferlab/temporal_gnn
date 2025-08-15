@@ -101,4 +101,3 @@ Our model achieves the following performance on the 10 datasets:
 | Dataset | MAE  | RMSE | MAPE |
 | -----   | ---- | ---- | ---- |
 | COVID-19 | 662.24 | 1023.19| 19.3|
-

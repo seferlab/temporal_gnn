@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 
 class GLU(nn.Module):
+
     def __init__(self, input_channel, output_channel):
         super(GLU, self).__init__()
         self.linear_left = nn.Linear(input_channel, output_channel)
@@ -14,15 +15,15 @@ class GLU(nn.Module):
 
 
 class StockBlockLayer(nn.Module):
+
     def __init__(self, time_step, unit, multi_layer, stack_cnt=0):
         super(StockBlockLayer, self).__init__()
         self.time_step = time_step
         self.unit = unit
         self.stack_cnt = stack_cnt
         self.multi = multi_layer
-        self.weight = nn.Parameter(
-            torch.Tensor(1, 3 + 1, 1, self.time_step * self.multi,
-                         self.multi * self.time_step))  # [K+1, 1, in_c, out_c]
+        self.weight = nn.Parameter(torch.Tensor(1, 3 + 1, 1, self.time_step * self.multi,
+                                                self.multi * self.time_step))  # [K+1, 1, in_c, out_c]
         nn.init.xavier_normal_(self.weight)
         self.forecast = nn.Linear(self.time_step * self.multi, self.time_step * self.multi)
         self.forecast_result = nn.Linear(self.time_step * self.multi, self.time_step)
@@ -37,25 +38,41 @@ class StockBlockLayer(nn.Module):
                 self.GLUs.append(GLU(self.time_step * 4, self.time_step * self.output_channel))
                 self.GLUs.append(GLU(self.time_step * 4, self.time_step * self.output_channel))
             elif i == 1:
-                self.GLUs.append(GLU(self.time_step * self.output_channel, self.time_step * self.output_channel))
-                self.GLUs.append(GLU(self.time_step * self.output_channel, self.time_step * self.output_channel))
+                self.GLUs.append(GLU(
+                    self.time_step * self.output_channel,
+                    self.time_step * self.output_channel,
+                ))
+                self.GLUs.append(GLU(
+                    self.time_step * self.output_channel,
+                    self.time_step * self.output_channel,
+                ))
             else:
-                self.GLUs.append(GLU(self.time_step * self.output_channel, self.time_step * self.output_channel))
-                self.GLUs.append(GLU(self.time_step * self.output_channel, self.time_step * self.output_channel))
+                self.GLUs.append(GLU(
+                    self.time_step * self.output_channel,
+                    self.time_step * self.output_channel,
+                ))
+                self.GLUs.append(GLU(
+                    self.time_step * self.output_channel,
+                    self.time_step * self.output_channel,
+                ))
 
     def spe_seq_cell(self, input):
         batch_size, k, input_channel, node_cnt, time_step = input.size()
         input = input.view(batch_size, -1, node_cnt, time_step)
         ffted = torch.view_as_real(torch.fft.fft(input, dim=1))
-        real = ffted[..., 0].permute(0, 2, 1, 3).contiguous().reshape(batch_size, node_cnt, -1)
-        img = ffted[..., 1].permute(0, 2, 1, 3).contiguous().reshape(batch_size, node_cnt, -1)
+        real = (ffted[..., 0].permute(0, 2, 1, 3).contiguous().reshape(batch_size, node_cnt, -1))
+        img = (ffted[..., 1].permute(0, 2, 1, 3).contiguous().reshape(batch_size, node_cnt, -1))
         for i in range(3):
             real = self.GLUs[i * 2](real)
             img = self.GLUs[2 * i + 1](img)
-        real = real.reshape(batch_size, node_cnt, 4, -1).permute(0, 2, 1, 3).contiguous()
+        real = (real.reshape(batch_size, node_cnt, 4, -1).permute(0, 2, 1, 3).contiguous())
         img = img.reshape(batch_size, node_cnt, 4, -1).permute(0, 2, 1, 3).contiguous()
         time_step_as_inner = torch.cat([real.unsqueeze(-1), img.unsqueeze(-1)], dim=-1)
-        iffted = torch.fft.irfft(torch.view_as_complex(time_step_as_inner), n=time_step_as_inner.shape[1], dim=1)
+        iffted = torch.fft.irfft(
+            torch.view_as_complex(time_step_as_inner),
+            n=time_step_as_inner.shape[1],
+            dim=1,
+        )
         return iffted
 
     def forward(self, x, mul_L):
@@ -76,8 +93,18 @@ class StockBlockLayer(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, units, stack_cnt, time_step, multi_layer, horizon=1, dropout_rate=0.5, leaky_rate=0.2,
-                 device='cpu'):
+
+    def __init__(
+        self,
+        units,
+        stack_cnt,
+        time_step,
+        multi_layer,
+        horizon=1,
+        dropout_rate=0.5,
+        leaky_rate=0.2,
+        device="cpu",
+    ):
         super(Model, self).__init__()
         self.unit = units
         self.stack_cnt = stack_cnt
@@ -111,7 +138,7 @@ class Model(nn.Module):
         :return: graph laplacian.
         """
         if normalize:
-            D = torch.diag(torch.sum(graph, dim=-1) ** (-1 / 2))
+            D = torch.diag(torch.sum(graph, dim=-1)**(-1 / 2))
             L = torch.eye(graph.size(0), device=graph.device, dtype=graph.dtype) - torch.mm(torch.mm(D, graph), D)
         else:
             D = torch.diag(torch.sum(graph, dim=-1))
@@ -129,7 +156,7 @@ class Model(nn.Module):
         first_laplacian = torch.zeros([1, N, N], device=laplacian.device, dtype=torch.float)
         second_laplacian = laplacian
         third_laplacian = (2 * torch.matmul(laplacian, second_laplacian)) - first_laplacian
-        forth_laplacian = 2 * torch.matmul(laplacian, third_laplacian) - second_laplacian
+        forth_laplacian = (2 * torch.matmul(laplacian, third_laplacian) - second_laplacian)
         multi_order_laplacian = torch.cat([first_laplacian, second_laplacian, third_laplacian, forth_laplacian], dim=0)
         return multi_order_laplacian
 
@@ -143,8 +170,7 @@ class Model(nn.Module):
         attention = 0.5 * (attention + attention.T)
         degree_l = torch.diag(degree)
         diagonal_degree_hat = torch.diag(1 / (torch.sqrt(degree) + 1e-7))
-        laplacian = torch.matmul(diagonal_degree_hat,
-                                 torch.matmul(degree_l - attention, diagonal_degree_hat))
+        laplacian = torch.matmul(diagonal_degree_hat, torch.matmul(degree_l - attention, diagonal_degree_hat))
         mul_L = self.cheb_polynomial(laplacian)
         return mul_L, attention
 

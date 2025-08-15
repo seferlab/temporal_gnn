@@ -48,7 +48,7 @@ class ReportTransformer:
 
     @staticmethod
     def get_model_prefix(model):
-        return model.label.split(':')[0]
+        return model.label.split(":")[0]
 
     @staticmethod
     def create_portfolio_values_df(random_results, all_results, best_model_results):
@@ -69,7 +69,8 @@ class ReportTransformer:
             next_values = next_values.reset_index(drop=True)
 
         returns = next_values / current_values
-        if normalize: returns -= 1
+        if normalize:
+            returns -= 1
 
         if append_ones:
             if isinstance(prices, pd.DataFrame):
@@ -84,11 +85,11 @@ class ReportTransformer:
         prediction = prediction[1:]
 
         diff = np.abs((prediction - actual) / actual)
-        decisions = np.full(actual.shape, 'Hold', dtype=object)
+        decisions = np.full(actual.shape, "Hold", dtype=object)
         hold = diff <= hold_threshold
         buy = prediction > actual
         sell = prediction < actual
 
-        decisions[~hold & buy] = 'Buy'
-        decisions[~hold & sell] = 'Sell'
+        decisions[~hold & buy] = "Buy"
+        decisions[~hold & sell] = "Sell"
         return decisions

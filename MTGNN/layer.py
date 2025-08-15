@@ -12,7 +12,7 @@ class nconv(nn.Module):
         super(nconv, self).__init__()
 
     def forward(self, x, A):
-        x = torch.einsum('ncwl,vw->ncvl', (x, A))
+        x = torch.einsum("ncwl,vw->ncvl", (x, A))
         return x.contiguous()
 
 
@@ -22,7 +22,7 @@ class dy_nconv(nn.Module):
         super(dy_nconv, self).__init__()
 
     def forward(self, x, A):
-        x = torch.einsum('ncvl,nvwl->ncwl', (x, A))
+        x = torch.einsum("ncvl,nvwl->ncwl", (x, A))
         return x.contiguous()
 
 
@@ -30,12 +30,7 @@ class linear(nn.Module):
 
     def __init__(self, c_in, c_out, bias=True):
         super(linear, self).__init__()
-        self.mlp = torch.nn.Conv2d(c_in,
-                                   c_out,
-                                   kernel_size=(1, 1),
-                                   padding=(0, 0),
-                                   stride=(1, 1),
-                                   bias=bias)
+        self.mlp = torch.nn.Conv2d(c_in, c_out, kernel_size=(1, 1), padding=(0, 0), stride=(1, 1), bias=bias)
 
     def forward(self, x):
         return self.mlp(x)
@@ -102,8 +97,8 @@ class dy_mixprop(nn.Module):
         self.lin2 = linear(c_in, c_in)
 
     def forward(self, x):
-        #adj = adj + torch.eye(adj.size(0)).to(x.device)
-        #d = adj.sum(1)
+        # adj = adj + torch.eye(adj.size(0)).to(x.device)
+        # d = adj.sum(1)
         x1 = torch.tanh(self.lin1(x))
         x2 = torch.tanh(self.lin2(x))
         adj = self.nconv(x1.transpose(2, 1), x2)
@@ -135,9 +130,7 @@ class dilated_1D(nn.Module):
         super(dilated_1D, self).__init__()
         self.tconv = nn.ModuleList()
         self.kernel_set = [2, 3, 6, 7]
-        self.tconv = nn.Conv2d(cin,
-                               cout, (1, 7),
-                               dilation=(1, dilation_factor))
+        self.tconv = nn.Conv2d(cin, cout, (1, 7), dilation=(1, dilation_factor))
 
     def forward(self, input):
         x = self.tconv(input)
@@ -152,8 +145,7 @@ class dilated_inception(nn.Module):
         self.kernel_set = [2, 3, 6, 7]
         cout = int(cout / len(self.kernel_set))
         for kern in self.kernel_set:
-            self.tconv.append(
-                nn.Conv2d(cin, cout, (1, kern), dilation=(1, dilation_factor)))
+            self.tconv.append(nn.Conv2d(cin, cout, (1, kern), dilation=(1, dilation_factor)))
 
     def forward(self, input):
         x = []
@@ -197,11 +189,10 @@ class graph_constructor(nn.Module):
         nodevec1 = torch.tanh(self.alpha * self.lin1(nodevec1))
         nodevec2 = torch.tanh(self.alpha * self.lin2(nodevec2))
 
-        a = torch.mm(nodevec1, nodevec2.transpose(1, 0)) - torch.mm(
-            nodevec2, nodevec1.transpose(1, 0))
+        a = torch.mm(nodevec1, nodevec2.transpose(1, 0)) - torch.mm(nodevec2, nodevec1.transpose(1, 0))
         adj = F.relu(torch.tanh(self.alpha * a))
         mask = torch.zeros(idx.size(0), idx.size(0)).to(self.device)
-        mask.fill_(float('0'))
+        mask.fill_(float("0"))
         s1, t1 = (adj + torch.rand_like(adj) * 0.01).topk(self.k, 1)
         mask.scatter_(1, t1, s1.fill_(1))
         adj = adj * mask
@@ -218,8 +209,7 @@ class graph_constructor(nn.Module):
         nodevec1 = torch.tanh(self.alpha * self.lin1(nodevec1))
         nodevec2 = torch.tanh(self.alpha * self.lin2(nodevec2))
 
-        a = torch.mm(nodevec1, nodevec2.transpose(1, 0)) - torch.mm(
-            nodevec2, nodevec1.transpose(1, 0))
+        a = torch.mm(nodevec1, nodevec2.transpose(1, 0)) - torch.mm(nodevec2, nodevec1.transpose(1, 0))
         adj = F.relu(torch.tanh(self.alpha * a))
         return adj
 
@@ -229,8 +219,7 @@ class graph_global(nn.Module):
     def __init__(self, nnodes, k, dim, device, alpha=3, static_feat=None):
         super(graph_global, self).__init__()
         self.nnodes = nnodes
-        self.A = nn.Parameter(torch.randn(nnodes, nnodes).to(device),
-                              requires_grad=True).to(device)
+        self.A = nn.Parameter(torch.randn(nnodes, nnodes).to(device), requires_grad=True).to(device)
 
     def forward(self, idx):
         return F.relu(self.A)
@@ -268,7 +257,7 @@ class graph_undirected(nn.Module):
         a = torch.mm(nodevec1, nodevec2.transpose(1, 0))
         adj = F.relu(torch.tanh(self.alpha * a))
         mask = torch.zeros(idx.size(0), idx.size(0)).to(self.device)
-        mask.fill_(float('0'))
+        mask.fill_(float("0"))
         s1, t1 = adj.topk(self.k, 1)
         mask.scatter_(1, t1, s1.fill_(1))
         adj = adj * mask
@@ -310,7 +299,7 @@ class graph_directed(nn.Module):
         a = torch.mm(nodevec1, nodevec2.transpose(1, 0))
         adj = F.relu(torch.tanh(self.alpha * a))
         mask = torch.zeros(idx.size(0), idx.size(0)).to(self.device)
-        mask.fill_(float('0'))
+        mask.fill_(float("0"))
         s1, t1 = adj.topk(self.k, 1)
         mask.scatter_(1, t1, s1.fill_(1))
         adj = adj * mask
@@ -318,9 +307,7 @@ class graph_directed(nn.Module):
 
 
 class LayerNorm(nn.Module):
-    __constants__ = [
-        'normalized_shape', 'weight', 'bias', 'eps', 'elementwise_affine'
-    ]
+    __constants__ = ["normalized_shape", "weight", "bias", "eps", "elementwise_affine"]
 
     def __init__(self, normalized_shape, eps=1e-5, elementwise_affine=True):
         super(LayerNorm, self).__init__()
@@ -333,8 +320,8 @@ class LayerNorm(nn.Module):
             self.weight = nn.Parameter(torch.Tensor(*normalized_shape))
             self.bias = nn.Parameter(torch.Tensor(*normalized_shape))
         else:
-            self.register_parameter('weight', None)
-            self.register_parameter('bias', None)
+            self.register_parameter("weight", None)
+            self.register_parameter("bias", None)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -344,13 +331,16 @@ class LayerNorm(nn.Module):
 
     def forward(self, input, idx):
         if self.elementwise_affine:
-            return F.layer_norm(input, tuple(input.shape[1:]),
-                                self.weight[:, idx, :], self.bias[:, idx, :],
-                                self.eps)
+            return F.layer_norm(
+                input,
+                tuple(input.shape[1:]),
+                self.weight[:, idx, :],
+                self.bias[:, idx, :],
+                self.eps,
+            )
         else:
-            return F.layer_norm(input, tuple(input.shape[1:]), self.weight,
-                                self.bias, self.eps)
+            return F.layer_norm(input, tuple(input.shape[1:]), self.weight, self.bias, self.eps)
 
     def extra_repr(self):
-        return '{normalized_shape}, eps={eps}, ' \
-            'elementwise_affine={elementwise_affine}'.format(**self.__dict__)
+        return ("{normalized_shape}, eps={eps}, "
+                "elementwise_affine={elementwise_affine}".format(**self.__dict__))

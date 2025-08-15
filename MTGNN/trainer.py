@@ -4,24 +4,24 @@ from net import *
 import util
 
 
-class Trainer():
+class Trainer:
 
-    def __init__(self,
-                 model,
-                 lrate,
-                 wdecay,
-                 clip,
-                 step_size,
-                 seq_out_len,
-                 scaler,
-                 device,
-                 cl=True):
+    def __init__(
+        self,
+        model,
+        lrate,
+        wdecay,
+        clip,
+        step_size,
+        seq_out_len,
+        scaler,
+        device,
+        cl=True,
+    ):
         self.scaler = scaler
         self.model = model
         self.model.to(device)
-        self.optimizer = optim.Adam(self.model.parameters(),
-                                    lr=lrate,
-                                    weight_decay=wdecay)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=lrate, weight_decay=wdecay)
         self.loss = util.masked_mae
         self.clip = clip
         self.step = step_size
@@ -40,8 +40,11 @@ class Trainer():
         if self.iter % self.step == 0 and self.task_level <= self.seq_out_len:
             self.task_level += 1
         if self.cl:
-            loss = self.loss(predict[:, :, :, :self.task_level],
-                             real[:, :, :, :self.task_level], 0.0)
+            loss = self.loss(
+                predict[:, :, :, :self.task_level],
+                real[:, :, :, :self.task_level],
+                0.0,
+            )
         else:
             loss = self.loss(predict, real, 0.0)
 
@@ -72,32 +75,18 @@ class Trainer():
 class Optim(object):
 
     def _makeOptimizer(self):
-        if self.method == 'sgd':
-            self.optimizer = optim.SGD(self.params,
-                                       lr=self.lr,
-                                       weight_decay=self.lr_decay)
-        elif self.method == 'adagrad':
-            self.optimizer = optim.Adagrad(self.params,
-                                           lr=self.lr,
-                                           weight_decay=self.lr_decay)
-        elif self.method == 'adadelta':
-            self.optimizer = optim.Adadelta(self.params,
-                                            lr=self.lr,
-                                            weight_decay=self.lr_decay)
-        elif self.method == 'adam':
-            self.optimizer = optim.Adam(self.params,
-                                        lr=self.lr,
-                                        weight_decay=self.lr_decay)
+        if self.method == "sgd":
+            self.optimizer = optim.SGD(self.params, lr=self.lr, weight_decay=self.lr_decay)
+        elif self.method == "adagrad":
+            self.optimizer = optim.Adagrad(self.params, lr=self.lr, weight_decay=self.lr_decay)
+        elif self.method == "adadelta":
+            self.optimizer = optim.Adadelta(self.params, lr=self.lr, weight_decay=self.lr_decay)
+        elif self.method == "adam":
+            self.optimizer = optim.Adam(self.params, lr=self.lr, weight_decay=self.lr_decay)
         else:
             raise RuntimeError("Invalid optim method: " + self.method)
 
-    def __init__(self,
-                 params,
-                 method,
-                 lr,
-                 clip,
-                 lr_decay=1,
-                 start_decay_at=None):
+    def __init__(self, params, method, lr, clip, lr_decay=1, start_decay_at=None):
         self.params = params  # careful: params may be a generator
         self.last_ppl = None
         self.lr = lr
@@ -140,7 +129,7 @@ class Optim(object):
         if self.start_decay:
             self.lr = self.lr * self.lr_decay
             print("Decaying learning rate to %g" % self.lr)
-        #only decay for one epoch
+        # only decay for one epoch
         self.start_decay = False
 
         self.last_ppl = ppl

@@ -10,7 +10,7 @@ class Data:
     label: str
 
     def __repr__(self):
-        return f'Data(label={self.label}, data={self.data})'
+        return f"Data(label={self.label}, data={self.data})"
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -26,7 +26,7 @@ class DataPath:
     data_type: Optional[str] = None
 
     def __repr__(self):
-        return f'Path(label={self.label}, path={self.path})'
+        return f"Path(label={self.label}, path={self.path})"
 
 
 @dataclass
@@ -39,9 +39,9 @@ class PortfolioResult:
 
     def __repr__(self):
         if self.predicted_result_data is not None:
-            return f'PortfolioResult(label={self.label}, change={self.data[0]}->{self.data[-1]}, predicted_change={self.data[0]}->{self.predicted_result_data[-1]}, long_short_combination={self.long_short_combination})'
+            return f"PortfolioResult(label={self.label}, change={self.data[0]}->{self.data[-1]}, predicted_change={self.data[0]}->{self.predicted_result_data[-1]}, long_short_combination={self.long_short_combination})"
         else:
-            return f'PortfolioResult(label={self.label}, change={self.data[0]}->{self.data[-1]}, long_short_combination={self.long_short_combination})'
+            return f"PortfolioResult(label={self.label}, change={self.data[0]}->{self.data[-1]}, long_short_combination={self.long_short_combination})"
 
     def final_portfolio_value(self):
         return self.data[-1]
@@ -53,4 +53,4 @@ class PortfolioValues:
     prediction: Optional[np.ndarray] = None
 
     def __repr__(self):
-        return f'PortfolioValues(actual={self.actual}, prediction={self.prediction})'
+        return f"PortfolioValues(actual={self.actual}, prediction={self.prediction})"

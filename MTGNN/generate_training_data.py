@@ -9,12 +9,7 @@ import os
 import pandas as pd
 
 
-def generate_graph_seq2seq_io_data(df,
-                                   x_offsets,
-                                   y_offsets,
-                                   add_time_in_day=True,
-                                   add_day_in_week=False,
-                                   scaler=None):
+def generate_graph_seq2seq_io_data(df, x_offsets, y_offsets, add_time_in_day=True, add_day_in_week=False, scaler=None):
     """
     Generate samples from
     :param df:
@@ -32,9 +27,7 @@ def generate_graph_seq2seq_io_data(df,
     data = np.expand_dims(df.values, axis=-1)
     data_list = [data]
     if add_time_in_day:
-        time_ind = (df.index.values -
-                    df.index.values.astype("datetime64[D]")) / np.timedelta64(
-                        1, "D")
+        time_ind = (df.index.values - df.index.values.astype("datetime64[D]")) / np.timedelta64(1, "D")
         time_in_day = np.tile(time_ind, [1, num_nodes, 1]).transpose((2, 1, 0))
         data_list.append(time_in_day)
     if add_day_in_week:
@@ -114,10 +107,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output_dir",
-                        type=str,
-                        default="data/",
-                        help="Output directory.")
+    parser.add_argument("--output_dir", type=str, default="data/", help="Output directory.")
     parser.add_argument(
         "--traffic_df_filename",
         type=str,

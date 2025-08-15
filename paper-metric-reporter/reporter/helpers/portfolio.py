@@ -16,18 +16,27 @@ class Portfolio:
 
         def get_results(is_long):
             assets = long_assets if is_long else short_assets
-            return cls._get_results(actual_prices.data, assets, predicted_returns.data, is_long,
-                                    cls._calculate_initial_budget(long_assets, short_assets, is_long))
+            return cls._get_results(
+                actual_prices.data,
+                assets,
+                predicted_returns.data,
+                is_long,
+                cls._calculate_initial_budget(long_assets, short_assets, is_long),
+            )
 
         (long_results, long_selection_accuracy) = get_results(True)
         (short_results, short_selection_accuracy) = get_results(False)
 
-        return PortfolioResult(data=long_results.actual + short_results.actual,
-                               label=predicted_returns.label,
-                               long_short_combination=(long_assets, short_assets),
-                               predicted_result_data=long_results.prediction + short_results.prediction,
-                               asset_selection_accuracy=np.average([long_selection_accuracy, short_selection_accuracy],
-                                                                   weights=[long_assets, short_assets]))
+        return PortfolioResult(
+            data=long_results.actual + short_results.actual,
+            label=predicted_returns.label,
+            long_short_combination=(long_assets, short_assets),
+            predicted_result_data=long_results.prediction + short_results.prediction,
+            asset_selection_accuracy=np.average(
+                [long_selection_accuracy, short_selection_accuracy],
+                weights=[long_assets, short_assets],
+            ),
+        )
 
     @classmethod
     def get_all_results(cls, actual_prices):
@@ -38,15 +47,20 @@ class Portfolio:
 
         def get_results(is_long):
             assets = long_assets if is_long else short_assets
-            return cls._get_random_results(actual_prices.data,
-                                           cls._calculate_initial_budget(long_assets, short_assets, is_long), is_long,
-                                           assets)
+            return cls._get_random_results(
+                actual_prices.data,
+                cls._calculate_initial_budget(long_assets, short_assets, is_long),
+                is_long,
+                assets,
+            )
 
         long_results, long_selection_accuracy = get_results(True)
         short_results, short_selection_accuracy = get_results(False)
 
-        asset_selection_accuracy = np.average([long_selection_accuracy, short_selection_accuracy],
-                                              weights=[long_assets, short_assets])
+        asset_selection_accuracy = np.average(
+            [long_selection_accuracy, short_selection_accuracy],
+            weights=[long_assets, short_assets],
+        )
         return long_results + short_results, asset_selection_accuracy
 
     @classmethod
@@ -55,38 +69,56 @@ class Portfolio:
 
     @classmethod
     def _get_results(cls, actual_prices, num_assets, predicted_returns, is_long, initial_budget):
-        portfolio_asset_indices = np.apply_along_axis(Portfolio._find_assets_to_buy(num_assets, is_long),
-                                                      axis=1,
-                                                      arr=predicted_returns)
+        portfolio_asset_indices = np.apply_along_axis(
+            Portfolio._find_assets_to_buy(num_assets, is_long),
+            axis=1,
+            arr=predicted_returns,
+        )
 
         actual_returns = ReportTransformer.get_returns(actual_prices, normalize=False, append_ones=True)
-        best_asset_indices = np.apply_along_axis(Portfolio._find_assets_to_buy(num_assets, is_long),
-                                                 axis=1,
-                                                 arr=actual_returns)
+        best_asset_indices = np.apply_along_axis(
+            Portfolio._find_assets_to_buy(num_assets, is_long),
+            axis=1,
+            arr=actual_returns,
+        )
 
         asset_selection_accuracy = cls._get_asset_selection_accuracy(best_asset_indices, portfolio_asset_indices)
-        return cls._calculate_portfolio_values(portfolio_asset_indices, actual_prices, initial_budget, is_long,
-                                               predicted_returns), asset_selection_accuracy
+        return (
+            cls._calculate_portfolio_values(
+                portfolio_asset_indices,
+                actual_prices,
+                initial_budget,
+                is_long,
+                predicted_returns,
+            ),
+            asset_selection_accuracy,
+        )
 
     @classmethod
     def _get_all_results(cls, actual_prices, initial_capital):
         portfolio_asset_indices = np.apply_along_axis(cls._all_assets(), axis=1, arr=actual_prices)
-        return cls._calculate_portfolio_values(portfolio_asset_indices,
-                                               actual_prices,
-                                               initial_capital,
-                                               True,
-                                               no_transaction=True).actual
+        return cls._calculate_portfolio_values(
+            portfolio_asset_indices,
+            actual_prices,
+            initial_capital,
+            True,
+            no_transaction=True,
+        ).actual
 
     @classmethod
     def _get_random_results(cls, actual_prices, initial_budget, is_long, num_assets):
         portfolio_asset_indices = np.apply_along_axis(cls._random_assets(num_assets), axis=1, arr=actual_prices)
         actual_returns = ReportTransformer.get_returns(actual_prices, normalize=False, append_ones=True)
-        best_asset_indices = np.apply_along_axis(Portfolio._find_assets_to_buy(num_assets, is_long),
-                                                 axis=1,
-                                                 arr=actual_returns)
+        best_asset_indices = np.apply_along_axis(
+            Portfolio._find_assets_to_buy(num_assets, is_long),
+            axis=1,
+            arr=actual_returns,
+        )
         asset_selection_accuracy = cls._get_asset_selection_accuracy(best_asset_indices, portfolio_asset_indices)
-        return cls._calculate_portfolio_values(portfolio_asset_indices, actual_prices, initial_budget,
-                                               is_long).actual, asset_selection_accuracy
+        return (
+            cls._calculate_portfolio_values(portfolio_asset_indices, actual_prices, initial_budget, is_long).actual,
+            asset_selection_accuracy,
+        )
 
     @classmethod
     def _calculate_initial_budget(cls, long_assets, short_assets, is_long):
@@ -128,14 +160,16 @@ class Portfolio:
         return find
 
     @staticmethod
-    def _calculate_portfolio_values(asset_indices,
-                                    actual_prices,
-                                    initial_budget,
-                                    is_long,
-                                    predicted_prices=None,
-                                    no_transaction=False):
+    def _calculate_portfolio_values(
+        asset_indices,
+        actual_prices,
+        initial_budget,
+        is_long,
+        predicted_prices=None,
+        no_transaction=False,
+    ):
         portfolio_values = [initial_budget]
-        predicted_portfolio_values = None if predicted_prices is None else [initial_budget]
+        predicted_portfolio_values = (None if predicted_prices is None else [initial_budget])
         if asset_indices.shape[1] == 0:
             return PortfolioValues(portfolio_values, portfolio_values)
 
@@ -143,7 +177,8 @@ class Portfolio:
             return np.hstack((prices, np.ones((prices.shape[0], 1))))
 
         actual_prices_with_constant = add_constant_prices(actual_prices)
-        predicted_prices_with_constant = add_constant_prices(predicted_prices) if predicted_prices is not None else None
+        predicted_prices_with_constant = (add_constant_prices(predicted_prices)
+                                          if predicted_prices is not None else None)
 
         # noinspection PyShadowingNames
         def calculate_actual_and_predicted_value(budget_per_asset, i):
@@ -160,20 +195,23 @@ class Portfolio:
             total_change = sum(
                 calculate_change_rate(asset_index, actual_prices_with_constant)
                 for asset_index in asset_indices[i - 1, :])
-            predicted_total_change = None if predicted_prices_with_constant is None else sum(
+            predicted_total_change = (None if predicted_prices_with_constant is None else sum(
                 calculate_change_rate(asset_index, predicted_prices_with_constant)
-                for asset_index in asset_indices[i - 1, :])
-            return budget_per_asset * total_change, None if predicted_prices is None else budget_per_asset * predicted_total_change
+                for asset_index in asset_indices[i - 1, :]))
+            return budget_per_asset * total_change, (None if predicted_prices is None else budget_per_asset *
+                                                     predicted_total_change)
 
         transaction_cost = 0 if no_transaction else config.transaction_cost
         for i in range(1, asset_indices.shape[0]):
             budget_per_asset = (portfolio_values[i - 1] / asset_indices.shape[1]) * (1 - transaction_cost)
             actual_value, predicted_value = calculate_actual_and_predicted_value(budget_per_asset, i)
             portfolio_values.append(actual_value)
-            predicted_portfolio_values.append(predicted_value) if predicted_prices is not None else ()
+            (predicted_portfolio_values.append(predicted_value) if predicted_prices is not None else ())
 
-        return PortfolioValues(np.asarray(portfolio_values),
-                               None if predicted_prices is None else np.asarray(predicted_portfolio_values))
+        return PortfolioValues(
+            np.asarray(portfolio_values),
+            (None if predicted_prices is None else np.asarray(predicted_portfolio_values)),
+        )
 
     @staticmethod
     def _get_asset_selection_accuracy(y_true, y_pred):

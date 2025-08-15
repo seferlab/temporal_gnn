@@ -2,7 +2,7 @@ import os
 
 import torch
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 from datetime import datetime
 from models.handler import train, test
 import argparse
@@ -11,36 +11,46 @@ from hyperopt import fmin, hp, space_eval, tpe
 import numpy as np
 
 
-def main_call(device, dataset, horizon, epoch, window_size, lr, multi_layer, exponential_decay_step, decay_rate,
-              dropout_rate):
+def main_call(
+    device,
+    dataset,
+    horizon,
+    epoch,
+    window_size,
+    lr,
+    multi_layer,
+    exponential_decay_step,
+    decay_rate,
+    dropout_rate,
+):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--train', type=bool, default=True)
-    parser.add_argument('--evaluate', type=bool, default=True)
-    parser.add_argument('--dataset', type=str, default=dataset)
-    parser.add_argument('--window_size', type=int, default=window_size)
-    parser.add_argument('--horizon', type=int, default=horizon)
-    parser.add_argument('--train_length', type=float, default=7)
-    parser.add_argument('--valid_length', type=float, default=2)
-    parser.add_argument('--test_length', type=float, default=1)
-    parser.add_argument('--epoch', type=int, default=epoch)
-    parser.add_argument('--lr', type=float, default=lr)
-    parser.add_argument('--multi_layer', type=int, default=multi_layer)
-    parser.add_argument('--device', type=str, default=device)
-    parser.add_argument('--validate_freq', type=int, default=1)
-    parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--norm_method', type=str, default='z_score')
-    parser.add_argument('--optimizer', type=str, default='RMSProp')
-    parser.add_argument('--early_stop', type=bool, default=False)
-    parser.add_argument('--exponential_decay_step', type=int, default=exponential_decay_step)
-    parser.add_argument('--decay_rate', type=float, default=decay_rate)
-    parser.add_argument('--dropout_rate', type=float, default=dropout_rate)
-    parser.add_argument('--leakyrelu_rate', type=int, default=0.2)
+    parser.add_argument("--train", type=bool, default=True)
+    parser.add_argument("--evaluate", type=bool, default=True)
+    parser.add_argument("--dataset", type=str, default=dataset)
+    parser.add_argument("--window_size", type=int, default=window_size)
+    parser.add_argument("--horizon", type=int, default=horizon)
+    parser.add_argument("--train_length", type=float, default=7)
+    parser.add_argument("--valid_length", type=float, default=2)
+    parser.add_argument("--test_length", type=float, default=1)
+    parser.add_argument("--epoch", type=int, default=epoch)
+    parser.add_argument("--lr", type=float, default=lr)
+    parser.add_argument("--multi_layer", type=int, default=multi_layer)
+    parser.add_argument("--device", type=str, default=device)
+    parser.add_argument("--validate_freq", type=int, default=1)
+    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--norm_method", type=str, default="z_score")
+    parser.add_argument("--optimizer", type=str, default="RMSProp")
+    parser.add_argument("--early_stop", type=bool, default=False)
+    parser.add_argument("--exponential_decay_step", type=int, default=exponential_decay_step)
+    parser.add_argument("--decay_rate", type=float, default=decay_rate)
+    parser.add_argument("--dropout_rate", type=float, default=dropout_rate)
+    parser.add_argument("--leakyrelu_rate", type=int, default=0.2)
 
     args = parser.parse_args()
-    print(f'Training configs: {args}')
-    data_file = os.path.join('dataset', args.dataset + '.csv')
-    result_train_file = os.path.join('output', args.dataset, 'train')
-    result_test_file = os.path.join('output', args.dataset, 'test')
+    print(f"Training configs: {args}")
+    data_file = os.path.join("dataset", args.dataset + ".csv")
+    result_train_file = os.path.join("output", args.dataset, "train")
+    result_test_file = os.path.join("output", args.dataset, "test")
     if not os.path.exists(result_train_file):
         os.makedirs(result_train_file)
     if not os.path.exists(result_test_file):
@@ -62,35 +72,33 @@ def main_call(device, dataset, horizon, epoch, window_size, lr, multi_layer, exp
             before_train = datetime.now().timestamp()
             _, normalize_statistic = train(train_data, valid_data, args, result_train_file)
             after_train = datetime.now().timestamp()
-            print(f'Training took {(after_train - before_train) / 60} minutes')
+            print(f"Training took {(after_train - before_train) / 60} minutes")
         except KeyboardInterrupt:
-            print('-' * 99)
-            print('Exiting from training early')
+            print("-" * 99)
+            print("Exiting from training early")
     if args.evaluate:
         return test(valid_data, args, result_train_file, result_test_file)
-    print('done')
+    print("done")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     hpo_max_evals = 100
     hpo_space = {
-        'epoch': hp.choice('epoch', [50]),
-        'window_size': hp.choice('window_size', [7, 14, 21, 28]),
-        'multi_layer': hp.choice('multi_layer', [2, 3, 5, 8, 13]),
-        'exponential_decay_step': hp.choice('exponential_decay_step', [2, 3, 5, 8, 13]),
-        'decay_rate': hp.choice('decay_rate', [.2, .3, .5, .8, .9]),
-        'dropout_rate': hp.choice('dropout_rate', [0, .25, .5, .75]),
-        'lr': hp.loguniform('lr', np.log(1e-6), np.log(1e-3))
+        "epoch": hp.choice("epoch", [50]),
+        "window_size": hp.choice("window_size", [7, 14, 21, 28]),
+        "multi_layer": hp.choice("multi_layer", [2, 3, 5, 8, 13]),
+        "exponential_decay_step": hp.choice("exponential_decay_step", [2, 3, 5, 8, 13]),
+        "decay_rate": hp.choice("decay_rate", [0.2, 0.3, 0.5, 0.8, 0.9]),
+        "dropout_rate": hp.choice("dropout_rate", [0, 0.25, 0.5, 0.75]),
+        "lr": hp.loguniform("lr", np.log(1e-6), np.log(1e-3)),
     }
 
-
     def objective(hparams):
-        print(f'Trying hyperparameters: {hparams}', flush=True)
-        rmse = main_call('cuda', '__crypto_daily_simple_returns_week_104', 7, **hparams)
+        print(f"Trying hyperparameters: {hparams}", flush=True)
+        rmse = main_call("cuda", "__crypto_daily_simple_returns_week_104", 7, **hparams)
         print("Validation RMSE: ", rmse, flush=True)
         return rmse
 
-
     best = fmin(objective, hpo_space, algo=tpe.suggest, max_evals=hpo_max_evals)
     best_hparams = space_eval(hpo_space, best)
-    print(f'Best hparams: {best_hparams}')
+    print(f"Best hparams: {best_hparams}")

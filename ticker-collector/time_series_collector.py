@@ -25,7 +25,7 @@ def main(tickers, output_path):
             if df.empty:
                 stocks_not_downloaded.append(ticker)
             else:
-                the_file = folder + '/' + ticker.replace(".", "_") + '.csv'
+                the_file = folder + "/" + ticker.replace(".", "_") + ".csv"
                 df.to_csv(the_file)
         except:
             stocks_not_downloaded.append(ticker)
@@ -39,5 +39,5 @@ def main(tickers, output_path):
         print(stocks_not_downloaded)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main(crypto_tickers, sys.argv[1])

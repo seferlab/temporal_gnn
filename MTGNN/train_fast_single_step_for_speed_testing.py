@@ -13,17 +13,19 @@ def main(device):
 
 
 def get_single_step(device):
-    return SingleStep(data_path='data/test/test.csv',
-                      week=3,
-                      num_weeks=3,
-                      device=device,
-                      num_nodes=20,
-                      subgraph_size=3,
-                      seq_in_len=5,
-                      horizon=5,
-                      batch_size=30,
-                      epochs=2)
+    return SingleStep(
+        data_path="data/test/test.csv",
+        week=3,
+        num_weeks=3,
+        device=device,
+        num_nodes=20,
+        subgraph_size=3,
+        seq_in_len=5,
+        horizon=5,
+        batch_size=30,
+        epochs=2,
+    )
 
 
 if __name__ == "__main__":
-    main('cpu')
+    main("cpu")
